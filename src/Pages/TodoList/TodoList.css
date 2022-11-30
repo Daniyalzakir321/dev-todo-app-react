@@ -1,0 +1,75 @@
+/* Header */
+.Todo_Header {
+  font-family: Ubuntu;
+  color: white;
+  text-shadow: 1px 1px 3px black;
+  font-size: 35px;
+  background: linear-gradient(to right, #4719aa, #4615b2, #4719aa);
+  height: 50px;
+  border: 1px solid black;
+  margin-bottom: 25px;
+  padding: 7px;
+  box-shadow: 0px 2px 5px gray;
+  text-align: center;
+}
+
+/* Add Todos */
+.Add_Todo {
+  margin: 20px 150px 22px 150px;
+  padding: 30px 0px 15px 0px;
+  text-align: center;
+}
+.Add_Todo > .Text_Field {
+  width: 500px;
+}
+.Add_Todo > Button {
+  width: 20%;
+  margin: 5px;
+}
+
+/* Paper */
+.Todos_Rendering {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 20px 150px 20px 150px;
+  /* margin:auto; */
+  padding: 10px;
+  /* text-align: center; */
+}
+.Text_Container{
+top: 10px;
+position: relative;
+width: 100%;
+left: 5px;
+}
+.Text_Container > p {
+  font-family: ubuntu;
+  font-weight: bold;
+  text-transform: capitalize;
+  /* text-align: left; */
+}
+.Button_Container{
+    display: flex;
+}
+.Button_Container Button {
+  width: 120px;
+  margin: 5px;
+  align-items: right;
+}
+
+/*  Dates */
+.Todos_Rendering > div > span {
+  font-size: 10px;
+  /* position: absolute; */
+  /* left: 190px; */
+  /* padding-top: 50px; */
+  font-family: Ubuntu;
+  font-weight: 500;
+  text-shadow: 0.1px 0.1px 0.8px black;
+}
+.Todo_SubHeading,
+.Todo_Analysis {
+  text-align: center;
+}
+
