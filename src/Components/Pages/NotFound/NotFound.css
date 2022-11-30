@@ -1,0 +1,14 @@
+.not-found-page {
+  align-items: center;
+  flex-direction: column;
+  display: flex;
+}
+
+.not-found-page > img {
+  height: 80vh;
+  width: auto;
+}
+
+.not-found-page > a {
+  font-family: "ubuntu";
+}

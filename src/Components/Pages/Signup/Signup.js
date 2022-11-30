@@ -1,17 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  Box,
-  TextField,
-  Button,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  Checkbox,
-  IconButton,
-  InputAdornment,
-} from "@mui/material";
+import { TextField, Button, IconButton, InputAdornment } from "@mui/material";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import GoogleIcon from "@mui/icons-material/Google";
@@ -21,33 +10,51 @@ import AOS from "aos";
 import "aos/dist/aos.css";
 import firebase from "firebase/compat/app";
 import { storage, auth } from "../../Firebase/Firebase";
-import { Formik, Form, Field, useFormik } from "formik";
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { useFormik } from "formik";
 import * as Yup from "yup";
-import { Navigation } from "@mui/icons-material";
-
 
 function Signup() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
-  console.log(auth);
 
   useEffect(() => {
     if (localStorage.getItem("token")) {
-      navigate("/", { replace: true });
-      window.history.replaceState(null, null, `/`);
+      navigate("/todos", { replace: true });
+      window.history.replaceState(null, null, `/todos`);
     }
-  }, []);
-
-  useEffect(() => {
     AOS.init({ once: true });
-    window.scrollTo(0, 0);
   }, []);
 
+  // Google Login
+  const GoogleLogin = () => {
+    const provider = new GoogleAuthProvider();
+    const auth = getAuth();
+    signInWithPopup(auth, provider).then((result) => {
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const { displayName, email, photoURL } = result.user;
+      if (result) {
+        localStorage.setItem("token", JSON.stringify(result.user));
+        storage.collection("Users").doc().collection(email).add({
+          UserName: displayName,
+          UserEmail: email,
+          UserPhoto: photoURL,
+          UserToken: credential.accessToken,
+          TimeStamp: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        setTimeout(() => {
+          navigate("/todos");
+        }, 1000);
+      }
+    });
+  };
+
+  // Formik Yup Input Validation
   const validationSchema = Yup.object().shape({
     email: Yup.string().email("Invalid email").required("Email is required"),
     password: Yup.string()
       .required("Password is required")
-      .min(8, "Should be 8 characters.")
+      .min(8, "Should be 8 characters minimum.")
       .max(31, "Can not be more then 30 characters."),
   });
 
@@ -58,51 +65,51 @@ function Signup() {
     },
     validationSchema: validationSchema,
     onSubmit: async (values, actions) => {
-      // console.log("values", values);
-      //   return
-      const {email, password} = values
-      console.log("values", values);
-      await auth.createUserWithEmailAndPassword(email, password)
-          .then(async(result) => {
-            console.log(result, "SignUp Successfull");
-            // await result.user.sendEmailVerification();
-            Swal.fire({
-              title: "SignUp Successfull!",
-              icon: "success",
-              focusConfirm: true,
-              confirmButtonText: " OK ",
-              timer: 3000
-            });
+      const { email, password } = values;
+      // SignUp with Email and Pass
+      await auth
+        .createUserWithEmailAndPassword(email, password)
+        .then(async (result) => {
+          Swal.fire({
+            title: "SignUp Successfull!",
+            icon: "success",
+            focusConfirm: true,
+            confirmButtonText: " OK ",
+            timer: 3000,
+          });
 
-            if (result) {
-              console.log(result)
-              await storage.collection("Users").doc().collection(result.user.email).add({
+          if (result) {
+            await storage
+              .collection("Users")
+              .doc()
+              .collection(result.user.email)
+              .add({
                 UserName: result.user.displayName,
                 UserEmail: result.user.email,
                 UserPhoto: result.user.photoURL,
                 UserToken: "null",
                 TimeStamp: firebase.firestore.FieldValue.serverTimestamp(),
               });
-              setTimeout(() => {
-                navigate('/login')                
-              }, 1000);
-              // auth.signOut();
-            }
-             // Reset Form
-             actions.resetForm();
-          })
-          .catch((error) => {
-            console.log(error.message);
-            Swal.fire({
-              icon: "error",
-              position: "top-end",
-              title: "Error",
-              text: error.message,
-              showConfirmButton: true,
-              timer:3000
-            });
+            setTimeout(() => {
+              navigate("/login");
+            }, 1000);
+            auth.signOut();
+          }
+          // Reset Form
+          actions.resetForm();
+        })
+        .catch((error) => {
+          console.log(error.message);
+          Swal.fire({
+            icon: "error",
+            position: "top-end",
+            title: "Error",
+            text: error.message,
+            showConfirmButton: true,
+            timer: 3000,
           });
-      }
+        });
+    },
   });
 
   return (
@@ -123,12 +130,11 @@ function Signup() {
       <div className="col-12 col-md-7 col-lg-6 auth-main-col text-center">
         <div className="d-flex flex-column align-content-end rigister-form-scroll">
           <div className="auth-body mx-auto">
-            <Link to="/login" style={{ textDecoration: "none" }}>
+            <Link to="/login">
               <img
                 src={
                   "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQHnsmZJ-Niz1IDI4zSkUkEqOsaxkbuWI3ajMUCXxiKJD8ra3w-tbSs34fyPEcNDh0A2Bc&usqp=CAU"
                 }
-                style={{ height: 85 }}
               />
             </Link>
             <p>Sign Up</p>
@@ -187,15 +193,19 @@ function Signup() {
                   >
                     Sign Up
                   </Button>
-                  <Button variant="contained" type="submit" className="w-100 ">
+                  <Button
+                    variant="contained"
+                    className="w-100 "
+                    onClick={() => GoogleLogin()}
+                  >
                     Google LogIn{" "}
-                    <GoogleIcon style={{ fontSize: 19, marginLeft: 10 }} />
+                    <GoogleIcon sx={{ fontSize: 19, marginLeft: 1 }} />
                   </Button>
                 </div>
               </form>
               <hr />
               <div className="auth-option text-center pt-2">
-                Already have an account? {" "}
+                Already have an account?{" "}
                 <Link className="text-link" to="/login">
                   LogIn
                 </Link>

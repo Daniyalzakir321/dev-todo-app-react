@@ -1,25 +1,24 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./TodoList.css";
 import firebase from "firebase/compat/app";
 import { storage, auth } from "../../Firebase/Firebase";
 import Swal from "sweetalert2";
-import { Button, TextField, Paper, Checkbox } from "@mui/material";
+import moment from "moment";
+// Header
+import Header from "../../Header/Header";
+import { Button, TextField, Paper, Checkbox, IconButton } from "@mui/material";
+// Mui Icons
 import AddBoxOutlinedIcon from "@mui/icons-material/AddBoxOutlined";
 import UpdateIcon from "@mui/icons-material/Update";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
-
+// Date Picker
 import { DesktopDatePicker } from "@mui/x-date-pickers/DesktopDatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-
-import { DateRangePicker } from "react-date-range";
-import "react-date-range/dist/styles.css"; // main style file
-import "react-date-range/dist/theme/default.css"; // theme css file
-import moment from "moment";
 
 function TodoList() {
-  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
   const [todos, setTodos] = useState([]);
   const [text, setText] = useState("");
   const [startDate, setStartDate] = useState(new Date());
@@ -27,37 +26,20 @@ function TodoList() {
   const [isCompleted, setCompleted] = useState(0);
   const [isRemaining, setRemaining] = useState(0);
 
+  var token = localStorage.getItem("token");
+  var user = JSON.parse(token);
+  var userEmail = user ? user.email : "com";
+
   useEffect(() => {
-    auth.onAuthStateChanged((res) => {
-      if (res) {
-        setUser(res);
-      }else{
-        setUser(null);
-      }
-    });
+    if (!token) {
+      navigate("/login", { replace: true });
+      window.history.replaceState(null, null, `/login`);
+    }
   }, []);
-
-
-  const userEmail= user?user.email:"abc@example.com"
-
-  const selectionRange = {
-    startDate: new Date(),
-    endDate: new Date(),
-    key: "selection",
-  };
-  const handleSelect = (ranges) => {
-    console.log(ranges);
-    // {
-    //   selection: {
-    //     startDate: [native Date Object],
-    //     endDate: [native Date Object],
-    //   }
-    // }
-  };
 
   useEffect(() => {
     getData();
-
+    // Get Completd Task
     storage
       .collection(userEmail)
       .where("Complete", "==", true)
@@ -68,7 +50,7 @@ function TodoList() {
           }))
         );
       });
-
+    // Get Remaining Task
     storage
       .collection(userEmail)
       .where("Complete", "==", false)
@@ -81,9 +63,8 @@ function TodoList() {
       });
   }, []);
 
-  // Get Date
+  // Get Todos Data
   const getData = () => {
-    console.log(userEmail)
     storage
       .collection(userEmail)
       .orderBy("ServerTimeStamp", "desc")
@@ -100,59 +81,69 @@ function TodoList() {
       });
   };
 
-  // Add
+  // Add Todo
   const Add = async (e) => {
     e.preventDefault();
-    // console.log(text)
-    // console.log(moment(startDate).format("DD/MM/YYYY"));
-    // console.log(moment(endDate).format("DD/MM/YYYY"));
-    await storage
-      .collection(userEmail)
-      .add({
-        Text: text,
-        Complete: false,
-        StartDate: moment(startDate).format("DD-MM-YYYY"),
-        EndDate: moment(endDate).format("DD-MM-YYYY"),
-        ServerTimeStamp: firebase.firestore.FieldValue.serverTimestamp(),
-      })
-      .then((e) => {
-        console.log(e);
-        setText("");
-        setStartDate()
-        setEndDate()
-        Swal.fire({
-          icon: "success",
-          title: "Todo Added Successfully!",
-          showConfirmButton: false,
-          timer: 3000,
+    const startDateIso = moment(startDate.toISOString()).format("DD-MM-YYYY");
+    const endDateIso = moment(endDate.toISOString()).format("DD-MM-YYYY");
+    if (moment(endDate.toISOString()).isSameOrAfter(startDate.toISOString())) {
+      await storage
+        .collection(userEmail)
+        .add({
+          Text: text,
+          Complete: false,
+          StartDate: startDateIso,
+          EndDate: endDateIso,
+          ServerTimeStamp: firebase.firestore.FieldValue.serverTimestamp(),
+        })
+        .then((e) => {
+          setText("");
+          setStartDate(new Date());
+          setEndDate(new Date());
+          Swal.fire({
+            icon: "success",
+            title: "Todo Added Successfully!",
+            showConfirmButton: false,
+            timer: 3000,
+          });
+        })
+        .catch((error) => {
+          Swal.fire({
+            icon: "error",
+            position: "top-end",
+            title: "Error",
+            text: error.message,
+            showConfirmButton: true,
+            timer: 3000,
+          });
         });
-      })
-      .catch((error) => {
-        Swal.fire({
-          icon: "error",
-          position: "top-end",
-          title: "Error",
-          text: error.message,
-          showConfirmButton: true,
-          timer: 3000,
-        });
+    } else {
+      Swal.fire({
+        icon: "warning",
+        title: "Date Error!",
+        html: ` <p><b>Start Date: ${startDateIso} - End Date: ${endDateIso}</b></p> <p>Start Date should not come after End Date</p>`,
+        showConfirmButton: true,
       });
+    }
   };
 
-  // Update
-  const Update = async (id, checked, statusUpdate) => {
+  // Update Todo
+  const Update = async (data, checked, statusUpdate) => {
+    const { id, Text } = data;
     if (id && statusUpdate) {
+      // Update Todo status
       await storage.collection(userEmail).doc(id).update({ Complete: checked });
     } else {
       const { value: text } = await Swal.fire({
-        title: "Enter Udated Todo ",
+        title: "Enter Udated Todo!",
         input: "text",
+        inputValue: Text,
         inputPlaceholder: "Enter updated todo",
+        confirmButtonText: "Done",
+        showCancelButton: true,
       });
-      console.log(text);
-
-      // const modifyTodo = prompt("Enter New Todo ☑️");
       if (text) {
+        // Update Todo Text
         await storage
           .collection(userEmail)
           .doc(id)
@@ -181,17 +172,10 @@ function TodoList() {
       }
     } //else
   };
-  // // Update Task Status
-  // const UpdateStatus = (id, checked) => {
-  //     storage
-  //     .collection(userEmail)
-  //     .doc(id)
-  //     .update({ Complete:checked })
-  // }
 
-  // Delete
+  // Delete Single Todo
   const Delete = async (id) => {
-   await storage
+    await storage
       .collection(userEmail)
       .doc(id)
       .delete()
@@ -215,14 +199,14 @@ function TodoList() {
       });
   };
 
-  // DeleteAll
+  // Delete All Todos
   const DeleteAll = () => {
     Swal.fire({
       title: "Are You Sure, You Want To Delete All Todos?",
       showDenyButton: false,
       showCancelButton: true,
       confirmButtonText: "Yes",
-    }).then(async(result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
         await storage
           .collection(userEmail)
@@ -254,79 +238,82 @@ function TodoList() {
 
   return (
     <div>
-      <h1 className="Todo_Header">☑ TODO LIST APP</h1>
+      {/* Header */}
+      <Header auth={auth} user={user} />
 
+      {/* Todo Add Form */}
       <form>
-        <Paper elevation={5} className="Add_Todo">
+        <Paper elevation={5} className="add-todo">
           <TextField
-            className="Text_Field"
+            className="text-field"
             label="Enter Todos"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            inputProps={{ maxLength: 55 }}
+            inputProps={{ maxLength: 100 }}
           />
-          <br /> <br />
-          {/* <DateRangePicker
-          showSelectionPreview={true}
-           ranges={[selectionRange]}
-          onChange={handleSelect}
-        /> */}
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <DesktopDatePicker
-              label="Start Date"
-              inputFormat="DD/MM/YYYY"
-              disablePast={true}
-              value={startDate}
-              onChange={setStartDate}
-              renderInput={(params) => <TextField {...params} />}
-            />{" "}
-            &nbsp;
-            <DesktopDatePicker
-              label="End Date"
-              inputFormat="DD/MM/YYYY"
-              disablePast={true}
-              value={endDate}
-              onChange={setEndDate}
-              renderInput={(params) => <TextField {...params} />}
-            />
-          </LocalizationProvider>
-          <br /> <br />
-          <Button
-            type="sumit"
-            variant="contained"
-            color="primary"
-            disabled={!text}
-            onClick={Add}
-          >
-            ADD &nbsp;
-            <AddBoxOutlinedIcon />
-          </Button>
-          <Button variant="contained" color="primary" onClick={DeleteAll}>
-            DELETE ALL &nbsp;
-            <DeleteOutlineOutlinedIcon />
-          </Button>
+
+          <div className="desktop-date-picker">
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DesktopDatePicker
+                className="date-picker"
+                label="Start Date"
+                inputFormat="DD/MM/YYYY"
+                disablePast={true}
+                value={startDate}
+                onChange={setStartDate}
+                renderInput={(params) => <TextField {...params} />}
+              />
+              <DesktopDatePicker
+                className="date-picker"
+                label="End Date"
+                inputFormat="DD/MM/YYYY"
+                disablePast={true}
+                value={endDate}
+                onChange={setEndDate}
+                renderInput={(params) => <TextField {...params} />}
+              />
+            </LocalizationProvider>
+          </div>
+
+          <div>
+            <Button
+              type="sumit"
+              variant="contained"
+              color="primary"
+              disabled={!text}
+              onClick={Add}
+            >
+              ADD
+              <AddBoxOutlinedIcon sx={{ ml: 1 }} />
+            </Button>
+            <Button variant="contained" color="primary" onClick={DeleteAll}>
+              DELETE ALL
+              <DeleteOutlineOutlinedIcon sx={{ ml: 1 }} />
+            </Button>
+          </div>
         </Paper>
       </form>
 
-      {/* <h2 className="Todo_SubHeading">THINGS TO DO</h2> */}
-      <h3 className="Todo_Analysis">
+      {/* Todos Task Analysis */}
+      <h4 className="todo-analysis">
         Total Tasks: {todos.length}, Completed: {isCompleted.length}, Remaining:{" "}
-        {isRemaining.length}{" "}
-      </h3>
+        {isRemaining.length}
+      </h4>
 
-      {todos.map((data, i) => {
+      {/* Todos Task List */}
+      {todos?.map((data, i) => {
         return (
-          <Paper elevation={5} className="Todos_Rendering" key={i}>
+          <Paper elevation={5} className="todos-rendering" key={i}>
             <div>
               <Checkbox
                 checked={data.Complete ? true : false}
                 onChange={(e) => {
-                  Update(data.id, e.target.checked, "statusUpdate");
+                  Update(data, e.target.checked, "statusUpdate");
                 }}
               />
             </div>
 
-            <div className="Text_Container">
+            <div className="text-container">
               {data.Complete ? (
                 <p>
                   <strike>{data.Text}</strike>
@@ -339,27 +326,17 @@ function TodoList() {
               </span>
             </div>
 
-            <div className="Button_Container">
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => Update(data.id)}
-              >
-                UPDATE &nbsp; <UpdateIcon />
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => Delete(data.id)}
-              >
-                DELETE &nbsp;
+            <div className="button-container">
+              <IconButton onClick={() => Update(data)} color="primary">
+                <UpdateIcon />
+              </IconButton>
+              <IconButton onClick={() => Delete(data.id)} color="primary">
                 <DeleteOutlineOutlinedIcon />
-              </Button>
+              </IconButton>
             </div>
           </Paper>
         );
       })}
-
     </div>
   );
 }
